@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-lambda-go/lambdacontext"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"gopkg.in/Clever/kayvee-go.v6/logger"
 )
 
@@ -19,40 +17,32 @@ import (
 //go:generate gofmt -w bindata.go
 
 // Handler encapsulates the external dependencies of the lambda function.
-// The example here demonstrates the case where the handler logic involves communicating with S3.
 type Handler struct {
-	s3API s3iface.S3API
 }
-
-// generate a mocks of dependencies for use during testing
-//go:generate mockgen -package main -source $PWD/vendor/github.com/aws/aws-sdk-go/service/s3/s3iface/interface.go -destination s3api_mocks_test.go S3API
 
 // Input to the Lambda Function is JSON unmarshal-ed into this struct.
 // If you are subscribing to events, then instead of this you should use
 // a type from the github.com/aws/aws-lambda-go/events package.
 type Input struct {
-	Foo string `json:"foo"`
+}
+
+// Output ...
+type Output struct {
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // Handle is invoked by the Lambda runtime with the contents of the function input.
-func (h Handler) Handle(ctx context.Context, input Input) error {
+func (h Handler) Handle(ctx context.Context, input Input) (Output, error) {
 	// create a request-specific logger, attach it to ctx, and add the Lambda request ID.
 	ctx = logger.NewContext(ctx, logger.New(os.Getenv("APP_NAME")))
 	if lambdaContext, ok := lambdacontext.FromContext(ctx); ok {
 		logger.FromContext(ctx).AddContext("aws-request-id", lambdaContext.AwsRequestID)
 	}
-	logger.FromContext(ctx).InfoD("received", logger.M{
-		"foo": input.Foo,
-	})
+	logger.FromContext(ctx).InfoD("received", logger.M{})
 
-	if _, err := h.s3API.GetObjectWithContext(ctx, &s3.GetObjectInput{
-		Key:    aws.String(input.Foo),
-		Bucket: aws.String("bar"),
-	}); err != nil {
-		return err
-	}
+	now := time.Now().UTC()
 
-	return nil
+	return Output{Timestamp: now}, nil
 }
 
 func main() {
@@ -60,18 +50,17 @@ func main() {
 		log.Fatalf("Error setting kvconfig: %s", err)
 	}
 
-	handler := Handler{
-		s3API: s3.New(session.New()),
-	}
+	handler := Handler{}
 
 	if os.Getenv("IS_LOCAL") == "true" {
 		// Update input as needed to debug
 		input := Input{}
 		log.Printf("Running locally with this input: %+v\n", input)
-		err := handler.Handle(context.TODO(), input)
+		output, err := handler.Handle(context.TODO(), input)
 		if err != nil {
 			log.Fatal(err)
 		}
+		fmt.Println(output)
 	} else {
 		lambda.Start(handler.Handle)
 	}
