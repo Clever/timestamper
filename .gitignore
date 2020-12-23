@@ -1,0 +1,12 @@
+# osx / sshfs
+._*
+.DS_Store
+
+# emacs / vim
+*~
+\#*\#
+.\#*
+vendor/
+bin/
+cmd/handler/*_mocks_*
+cmd/handler/bindata.go

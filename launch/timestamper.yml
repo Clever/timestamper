@@ -1,0 +1,11 @@
+run:
+  type: lambda/us-west-2
+resources:
+  max_mem: 0.1
+shepherds:
+- "renato.prime@clever.com"
+team: "eng-family-engagement"
+lambda:
+  Timeout: 10 # seconds
+  NoVPC: true # if the lambda depends on internal services, set this to false
+  Events: {}
